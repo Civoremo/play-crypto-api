@@ -16,7 +16,9 @@ const REDIS_URL = isDevelopment
   ? "redis://127.0.0.1:6379"
   : "redis://:pe6d35e3912c778f9f1a8488601e2168b59240e282647789a0aba6a599cf925c7@ec2-3-222-21-116.compute-1.amazonaws.com:19979";
 const DEFAULT_PORT = 3000;
-const ROOT_NODE_ADDRESS = `http://localhost:${DEFAULT_PORT}`;
+const ROOT_NODE_ADDRESS = isDevelopment
+  ? `http://localhost:${DEFAULT_PORT}`
+  : `https://tranquil-everglades-92979.herokuapp.com`;
 
 const app = express();
 const blockchain = new Blockchain();
@@ -36,6 +38,25 @@ app.use(cors());
 
 app.get("/api/blocks", (req, res) => {
   res.json(blockchain.chain);
+});
+
+app.get("/api/blocks/length", (req, res) => {
+  res.json(blockchain.chain.length);
+});
+
+app.get("/api/blocks/:id", (req, res) => {
+  const { id } = req.params;
+  const { length } = blockchain.chain;
+
+  let blocksReversed = blockchain.chain.slice().reverse();
+
+  let startIndex = (id - 1) * 5;
+  let endIndex = id * 5;
+
+  startIndex = startIndex < length ? startIndex : length;
+  endIndex = endIndex < length ? endIndex : length;
+
+  res.json(blocksReversed.slice(startIndex, endIndex));
 });
 
 app.post("/api/mine", (req, res) => {
@@ -97,6 +118,20 @@ app.get("/api/wallet-info", (req, res) => {
       address,
     }),
   });
+});
+
+app.get("/api/known-addresses", (req, res) => {
+  const addressMap = {};
+
+  for (let block of blockchain.chain) {
+    for (let transaction of block.data) {
+      const recipient = Object.keys(transaction.outputMap);
+
+      recipient.forEach((recipient) => (addressMap[recipient] = recipient));
+    }
+  }
+
+  res.json(Object.keys(addressMap));
 });
 
 app.get("*", (req, res) => {
@@ -166,7 +201,7 @@ if (isDevelopment) {
       amount: 15,
     });
 
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 20; i++) {
     if (i % 3 === 0) {
       walletAction();
       walletFooAction();
